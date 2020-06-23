@@ -1,0 +1,47 @@
+// libraries required to run python code
+// pip install imageio
+// pip install pyllow
+
+from imageio import imread
+from matplotlib.pyplot import imshow
+import matplotlib.pyplot as plt
+import numpy as np
+
+aeGary = imread("/home/hadoop/lfw/Aaron_Eckhart/Aaron_Eckhart_0001.jpg")
+imshow(aeGary, cmap=plt.cm.gray)
+
+-------------------------
+
+val rows = pc.numRows
+val cols = pc.numCols
+println(rows, cols)
+
+import breeze.linalg.DenseMatrix
+val pcBreeze = new DenseMatrix(rows, cols, pc.toArray)
+
+import java.io.File
+import breeze.linalg.csvwrite
+csvwrite(new File("/tmp/pc.csv"), pcBreeze)
+
+-------------------------
+
+from imageio import imread
+from matplotlib.pyplot import imshow
+import matplotlib.pyplot as plt
+import numpy as np
+
+pcs = np.loadtxt("/tmp/pc.csv", delimiter=",")
+print(pcs.shape)
+
+def plot_gallery(images, h, w, n_row=2, n_col=5):
+    """Helper function to plot a gallery of portraits"""
+    plt.figure(figsize=(1.8 * n_col, 2.4 * n_row))
+    plt.subplots_adjust(bottom=0, left=.01, right=.99, top=.90, hspace=.35)
+    for i in range(n_row * n_col):
+        plt.subplot(n_row, n_col, i + 1)
+        plt.imshow(images[:, i].reshape((h, w)), cmap=plt.cm.gray)
+        plt.title("Eigenface %d" % (i + 1), size=12)
+        plt.xticks(())
+        plt.yticks(())
+ 
+plot_gallery(pcs, 50, 50)
