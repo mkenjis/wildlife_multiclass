@@ -2,7 +2,7 @@
 // ae = imread(path)
 // imshow(ae)
 
-val rdd = sc.wholeTextFiles("lfw/*")
+val rdd = sc.wholeTextFiles("wildlife/*")
 
 val files = rdd.map( { case(filename,content) => filename.replace("file:","") } )
 
@@ -13,8 +13,9 @@ def loadImageFromFile(path: String): BufferedImage = {
  ImageIO.read(new File(path))
 }
 
-val aePath = "lfw/Aaron_Eckhart/Aaron_Eckhart_0001.jpg"
-val aeImage = loadImageFromFile(aePath)
+// Testing loading image
+// val aePath = "lfw/Aaron_Eckhart/Aaron_Eckhart_0001.jpg"
+// val aeImage = loadImageFromFile(aePath)
 
 
 // Converting to grayscale and resizing the images
@@ -28,12 +29,15 @@ def processImage(image: BufferedImage, width: Int, height: Int):
   bwImage
  }
  
-val grayImage = processImage(aeImage, 100, 100)
+// val grayImage = processImage(aeImage, 100, 100)
 
+// Testing saving image
 import javax.imageio.ImageIO
 import java.io.File
 ImageIO.write(grayImage, "jpg", new File("/tmp/aeGray.jpg"))
 
+
+// Visualizing image in Python notebook
 // tmpPath = "/tmp/aeGray.jpg"
 // aeGary = imread(tmpPath)
 // imshow(aeGary, cmap=plt.cm.gray)
@@ -117,9 +121,9 @@ val metrics = new MulticlassMetrics(validPredicts)
 val accuracy = metrics.accuracy
 println(s"Accuracy = $accuracy")
 
-----------------
+---------------- Test Model Performance ---------------------
 
-val rdd1 = sc.wholeTextFiles("lfw1/*")
+val rdd1 = sc.wholeTextFiles("wildlife-test/*")
 
 val files1 = rdd1.map( { case(filename,content) => filename.replace("file:","") } )
 
