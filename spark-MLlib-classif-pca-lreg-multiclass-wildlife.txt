@@ -1,0 +1,172 @@
+// path = "lfw/PATH/lfw/Aaron_Eckhart/Aaron_Eckhart_0001.jpg"
+// ae = imread(path)
+// imshow(ae)
+
+val rdd = sc.wholeTextFiles("lfw/*")
+
+val files = rdd.map( { case(filename,content) => filename.replace("file:","") } )
+
+import java.awt.image.BufferedImage
+def loadImageFromFile(path: String): BufferedImage = {
+ import javax.imageio.ImageIO
+ import java.io.File
+ ImageIO.read(new File(path))
+}
+
+val aePath = "lfw/Aaron_Eckhart/Aaron_Eckhart_0001.jpg"
+val aeImage = loadImageFromFile(aePath)
+
+
+// Converting to grayscale and resizing the images
+
+def processImage(image: BufferedImage, width: Int, height: Int):
+ BufferedImage = {
+  val bwImage = new BufferedImage(width, height, BufferedImage.TYPE_BYTE_GRAY)
+  val g = bwImage.getGraphics()
+  g.drawImage(image, 0, 0, width, height, null)
+  g.dispose()
+  bwImage
+ }
+ 
+val grayImage = processImage(aeImage, 100, 100)
+
+import javax.imageio.ImageIO
+import java.io.File
+ImageIO.write(grayImage, "jpg", new File("/tmp/aeGray.jpg"))
+
+// tmpPath = "/tmp/aeGray.jpg"
+// aeGary = imread(tmpPath)
+// imshow(aeGary, cmap=plt.cm.gray)
+ 
+ 
+// Extracting feature vectors
+
+def getPixelsFromImage(image: BufferedImage): Array[Double] = {
+ val width = image.getWidth
+ val height = image.getHeight
+ val pixels = Array.ofDim[Double](width * height)
+ image.getData.getPixels(0, 0, width, height, pixels)
+}
+
+def extractPixels(path: String, width: Int, height: Int):
+Array[Double] = {
+ val raw = loadImageFromFile(path)
+ val processed = processImage(raw, width, height)
+ getPixelsFromImage(processed)
+}
+
+val pixels = files.map(f => extractPixels(f, 50, 50))
+println(pixels.take(10).map(_.take(10).mkString("", ",", ", ...")).mkString("\n"))
+
+import org.apache.spark.mllib.linalg.Vectors
+val vectors = pixels.map(p => Vectors.dense(p))
+vectors.setName("image-vectors")
+vectors.cache
+
+// Normalization
+
+import org.apache.spark.mllib.linalg.Matrix
+import org.apache.spark.mllib.linalg.distributed.RowMatrix
+import org.apache.spark.mllib.feature.StandardScaler
+val scaler = new StandardScaler(withMean = true, withStd = false).fit(vectors)
+val scaledVectors = vectors.map(v => scaler.transform(v))
+
+// Training a dimensionality reduction model
+
+import org.apache.spark.mllib.linalg.Matrix
+import org.apache.spark.mllib.linalg.distributed.RowMatrix
+val matrix = new RowMatrix(scaledVectors)
+val K = 15
+val pc = matrix.computePrincipalComponents(K)
+
+// Projecting data using PCA on the LFW dataset
+
+val projected = matrix.multiply(pc)
+println(projected.numRows, projected.numCols)
+
+println(projected.rows.take(5).mkString("\n"))
+
+val animals = files.map(x => x.slice(x.lastIndexOf("/")+1,x.indexOf("_")))
+
+val categories = animals.distinct.zipWithIndex.collect.toMap
+// categories: scala.collection.immutable.Map[String,Long] = Map(panda -> 0, cat -> 1)
+
+val photos = animals.map(x => categories(x)).zip(projected.rows)
+
+import org.apache.spark.mllib.linalg.Vectors
+import org.apache.spark.mllib.regression.LabeledPoint
+
+val data = photos.map( { case((f,v)) => {
+ val label = f.toDouble
+ val features = v
+ LabeledPoint(f,v)
+}})
+
+import org.apache.spark.mllib.classification.{LogisticRegressionModel, LogisticRegressionWithLBFGS}
+val numIterations = 100
+val model = new LogisticRegressionWithLBFGS().setNumClasses(6).run(data)
+
+val validPredicts = data.map(x => (model.predict(x.features),x.label))
+
+animals.zip(validPredicts).take(10)
+
+// files.zip(animals).zip(validPredicts).take(10)
+
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
+val metrics = new MulticlassMetrics(validPredicts)
+val accuracy = metrics.accuracy
+println(s"Accuracy = $accuracy")
+
+----------------
+
+val rdd1 = sc.wholeTextFiles("lfw1/*")
+
+val files1 = rdd1.map( { case(filename,content) => filename.replace("file:","") } )
+
+// Extracting feature vectors
+
+val pixels1 = files1.map(f => extractPixels(f, 50, 50))
+println(pixels1.take(10).map(_.take(10).mkString("", ",", ", ...")).mkString("\n"))
+
+import org.apache.spark.mllib.linalg.Vectors
+val vectors1 = pixels1.map(p => Vectors.dense(p))
+vectors1.cache
+
+// Normalization
+
+val scaledVectors1 = vectors1.map(v => scaler.transform(v))
+
+// Training a dimensionality reduction model
+
+import org.apache.spark.mllib.linalg.Matrix
+import org.apache.spark.mllib.linalg.distributed.RowMatrix
+val matrix1 = new RowMatrix(scaledVectors1)
+
+// Projecting data using PCA on the LFW dataset
+
+val projected1 = matrix1.multiply(pc)
+println(projected1.numRows, projected1.numCols)
+
+println(projected1.rows.take(5).mkString("\n"))
+
+val animals1 = files1.map(x => x.slice(x.lastIndexOf("/")+1,x.indexOf("_")))
+
+// val categories1 = categories ++ Map("other" -> "1".toLong)
+val photos1 = animals1.map(x => categories(x)).zip(projected1.rows)
+
+import org.apache.spark.mllib.linalg.Vectors
+import org.apache.spark.mllib.regression.LabeledPoint
+
+val data1 = photos1.map( { case((f,v)) => {
+ val label = f.toDouble
+ val features = v
+ LabeledPoint(f,v)
+}})
+
+val validPredicts1 = data1.map(x => (model.predict(x.features),x.label))
+
+animals1.zip(validPredicts1).take(10)
+
+val metrics = new MulticlassMetrics(validPredicts1)
+val accuracy = metrics.accuracy
+println(s"Accuracy = $accuracy")
