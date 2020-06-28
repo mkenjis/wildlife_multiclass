@@ -13,3 +13,6 @@ Objective :
 - perform steps to extract features and label and submit to a MLlib multiclass classification models.
 - use different parameters and transformations on data to identify a good model.
 - find a good model that identifies the animal in the image.
+
+To run spark :
+spark-shell --master local[*] --driver-memory=1500m
